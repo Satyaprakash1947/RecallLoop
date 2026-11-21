@@ -337,3 +337,65 @@ class ActionHistoryEvent(StrictModel):
     new_status: ActionStatus
     occurred_at: datetime
     details: dict[str, Any] = Field(default_factory=dict)
+
+
+class VoiceConnectionState(StrEnum):
+    STARTING = "starting"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    FAILED = "failed"
+
+
+class VoiceSessionRecord(StrictModel):
+    session_id: UUID
+    agora_session_id: str | None = None
+    channel: str
+    user_uid: int
+    status: VoiceConnectionState
+    created_at: datetime
+    stopped_at: datetime | None = None
+    transcript_memory_id: UUID | None = None
+    error: str | None = None
+
+
+class VoiceSessionStart(StrictModel):
+    user_id: Annotated[str, Field(min_length=1, max_length=128)] = "browser-user"
+
+
+class VoiceTranscriptLine(StrictModel):
+    role: str
+    text: Annotated[str, Field(min_length=1, max_length=5000)]
+    final: bool = True
+
+    @model_validator(mode="after")
+    def role_is_supported(self):
+        if self.role not in {"user", "agent"}:
+            raise ValueError("transcript role must be user or agent")
+        return self
+
+
+class VoiceTranscriptUpdate(StrictModel):
+    lines: Annotated[list[VoiceTranscriptLine], Field(max_length=200)]
+
+
+class VoiceMessageRequest(StrictModel):
+    message: Annotated[str, Field(min_length=1, max_length=5000)]
+    session_id: UUID | None = None
+
+
+class VoiceExtractionRequest(StrictModel):
+    session_id: UUID
+    extraction_response: dict[str, Any]
+    content: str | None = None
+
+
+class VoiceActionProposal(StrictModel):
+    commitment_id: UUID | None = None
+    action_type: ActionType
+    description: Annotated[str, Field(min_length=1, max_length=1000)]
+    target: str | None = None
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: Annotated[str, Field(min_length=1, max_length=128)]
+    evidence_references: list[UUID] = Field(default_factory=list)
+    verification_required: bool = False

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101a2b"><title>RecallLoop — Voice memory</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><a class="brand" href="/"><span class="brand-icon">R</span><span>Recall<span>Loop</span></span></a><span class="tag">VOICE MEMORY</span></header>
+    <section class="intro"><p class="eyebrow">YOUR OPERATIONS MEMORY</p><h1>Remember the details.<br><em>Move work forward.</em></h1><p class="lede">Ask about past conversations and commitments. RecallLoop answers from transcript evidence and keeps approval in your hands.</p></section>
+    <section class="panel controls">
+      <div><label for="api-key">API key <small>(only needed when protected)</small></label><input id="api-key" type="password" autocomplete="off" placeholder="Paste RecallLoop API key"></div>
+      <div class="buttons"><button id="start" class="primary">Start conversation</button><button id="stop" disabled>End conversation</button></div>
+      <div class="connection"><span class="dot" id="dot"></span><span id="connection">Disconnected</span><span class="mic" id="mic">Microphone: off</span></div>
+      <p class="hint" id="error" role="status"></p>
+    </section>
+    <div class="grid">
+      <section class="panel conversation"><div class="section-head"><div><p class="eyebrow">LIVE SESSION</p><h2>Conversation</h2></div><span id="activity" class="activity">Ready</span></div>
+        <div id="messages" class="messages"><div class="empty">Start a conversation or type a question below.</div></div>
+        <form id="message-form" class="composer"><input id="message" maxlength="5000" placeholder="Ask RecallLoop about a memory…" aria-label="Message"><button class="primary" type="submit">Send</button></form>
+      </section>
+      <aside class="panel evidence"><div class="section-head"><div><p class="eyebrow">RETRIEVAL</p><h2>Evidence</h2></div></div><div id="evidence-content" class="evidence-content"><p class="muted">Transcript sources and matching memory records will appear here.</p></div>
+        <div class="section-head action-heading"><div><p class="eyebrow">HUMAN CONTROL</p><h2>Pending actions</h2></div><button id="refresh-actions" class="small">Refresh</button></div><div id="actions" class="actions"><p class="muted">No pending actions loaded.</p></div>
+      </aside>
+    </div>
+    <footer>RecallLoop only reports what source evidence supports. Agent audio uses Agora RTC; text fallback uses browser speech when available.</footer>
+  </main>
+  <script type="module" src="/voice.js"></script>
+</body></html>

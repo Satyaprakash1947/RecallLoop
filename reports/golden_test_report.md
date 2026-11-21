@@ -1,6 +1,6 @@
 # RecallLoop Test Report
 
-Full suite: 69/69 passed
+Full suite: 77/77 passed
 Golden cases: 25/25 passed
 
 | Case or test | Scenario | Result | Detail |
@@ -33,6 +33,7 @@ Golden cases: 25/25 passed
 | test_action_and_history_persist_after_app_restart | test_action_and_history_persist_after_app_restart | PASS | passed |
 | test_action_creation_and_approval_policy | test_action_creation_and_approval_policy | PASS | passed |
 | test_action_verification_requires_authorized_verifier_and_does_not_change_commitment | test_action_verification_requires_authorized_verifier_and_does_not_change_commitment | PASS | passed |
+| test_agora_provider_errors_return_safe_http_errors | test_agora_provider_errors_return_safe_http_errors | PASS | passed |
 | test_ambiguous_memory_returns_insufficient_evidence | test_ambiguous_memory_returns_insufficient_evidence | PASS | passed |
 | test_approved_cancellation_action_updates_commitment_with_source_evidence | test_approved_cancellation_action_updates_commitment_with_source_evidence | PASS | passed |
 | test_cancelled_action_cannot_execute_and_history_is_append_only | test_cancelled_action_cannot_execute_and_history_is_append_only | PASS | passed |
@@ -52,6 +53,7 @@ Golden cases: 25/25 passed
 | test_due_date_is_not_overdue_until_end_of_local_due_day | test_due_date_is_not_overdue_until_end_of_local_due_day | PASS | passed |
 | test_exact_memory_retrieval_includes_original_quote_and_timestamp | test_exact_memory_retrieval_includes_original_quote_and_timestamp | PASS | passed |
 | test_existing_task002_database_schema_is_upgraded_in_place | test_existing_task002_database_schema_is_upgraded_in_place | PASS | passed |
+| test_failed_stop_remains_retryable | test_failed_stop_remains_retryable | PASS | passed |
 | test_fastapi_routes_create_search_recall_commitment_and_history | test_fastapi_routes_create_search_recall_commitment_and_history | PASS | passed |
 | test_health_endpoint_checks_database_and_is_public | test_health_endpoint_checks_database_and_is_public | PASS | passed |
 | test_http_endpoints_return_validation_and_not_found_codes | test_http_endpoints_return_validation_and_not_found_codes | PASS | passed |
@@ -60,6 +62,7 @@ Golden cases: 25/25 passed
 | test_lifecycle_transitions_store_acceptance_and_history | test_lifecycle_transitions_store_acceptance_and_history | PASS | passed |
 | test_mark_overdue_changes_only_confirmed_past_due_records_and_preserves_history | test_mark_overdue_changes_only_confirmed_past_due_records_and_preserves_history | PASS | passed |
 | test_missing_memory_returns_insufficient_evidence | test_missing_memory_returns_insufficient_evidence | PASS | passed |
+| test_missing_vendor_credentials_fail_closed | test_missing_vendor_credentials_fail_closed | PASS | passed |
 | test_mock_send_succeeds_once_and_is_idempotent | test_mock_send_succeeds_once_and_is_idempotent | PASS | passed |
 | test_overdue_and_upcoming_respect_date_only_deadlines_and_kolkata_timezone | test_overdue_and_upcoming_respect_date_only_deadlines_and_kolkata_timezone | PASS | passed |
 | test_production_api_requires_key_and_documents_header | test_production_api_requires_key_and_documents_header | PASS | passed |
@@ -74,3 +77,8 @@ Golden cases: 25/25 passed
 | test_source_transcript_is_preserved_even_if_duplicate_submission_occurs | test_source_transcript_is_preserved_even_if_duplicate_submission_occurs | PASS | passed |
 | test_ticket_tool_failure_and_success | test_ticket_tool_failure_and_success | PASS | passed |
 | test_ticket_tool_supports_reassignment_after_ticket_creation | test_ticket_tool_supports_reassignment_after_ticket_creation | PASS | passed |
+| test_transcript_survives_app_restart | test_transcript_survives_app_restart | PASS | passed |
+| test_voice_action_proposal_cannot_skip_approval | test_voice_action_proposal_cannot_skip_approval | PASS | passed |
+| test_voice_extraction_validates_exact_transcript_before_memory_storage | test_voice_extraction_validates_exact_transcript_before_memory_storage | PASS | passed |
+| test_voice_recall_uses_existing_evidence_and_completion_policy | test_voice_recall_uses_existing_evidence_and_completion_policy | PASS | passed |
+| test_voice_session_start_and_stop_over_http | test_voice_session_start_and_stop_over_http | PASS | passed |

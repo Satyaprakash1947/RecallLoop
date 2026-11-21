@@ -1,6 +1,6 @@
 # RecallLoop commitment and recall engine
 
-RecallLoop validates natural-language commitment extractions, stores source-backed memories in SQLite, searches them with FTS5, answers recall questions from transcript evidence, and runs explicitly approved actions through local mock tools. It does not connect to Agora, Murf, messaging providers, or ticketing services.
+RecallLoop validates natural-language commitment extractions, stores source-backed memories in SQLite, searches them with FTS5, answers recall questions from transcript evidence, and runs explicitly approved actions through local mock tools. The voice interface uses Agora Conversational AI Platform sessions and can use Agora's native Murf TTS adapter; these vendor paths require separate account setup and are not represented as live-tested here.
 
 ## Architecture
 
@@ -12,6 +12,7 @@ The code is split into four layers so each part has one clear job:
 4. **Retrieval and intelligence** — `retrieval.py` applies conservative answer rules and prepares overdue recovery suggestions. It never executes a suggestion.
 5. **Action execution** — `action_service.py` applies approval policy and dispatches approved actions to the small tool interface in `action_tools.py`. `action_store.py` persists action state, idempotency, approvals, evidence references, and immutable events.
 6. **HTTP API** — `api.py` maps JSON requests to storage, retrieval, and action services with FastAPI. `create_app(path)` makes it easy to use a separate database in development and tests.
+7. **Voice interface** — `voice.py` starts and stops Agora sessions, persists session transcript events, and routes evidence lookup through the existing retrieval service. `web/` is a small browser client; it receives short-lived RTC/RTM tokens, never the App Certificate.
 
 ### Beginner notes
 
@@ -78,6 +79,55 @@ FastAPI's interactive API page is at [http://127.0.0.1:8000/docs](http://127.0.0
 | `POST /actions/{id}/cancel` | Cancel an action that has not started execution |
 | `GET /actions/{id}/history` | Read append-only action lifecycle events |
 | `POST /actions/{id}/verify` | Verify a successful action with evidence and an authorized verifier |
+| `POST /api/voice/session/start` | Start an Agora session and return browser RTC/RTM credentials |
+| `POST /api/voice/session/{id}/stop` | Stop Agora and persist stopped state |
+| `GET /api/voice/session/{id}` | Read persisted voice session state |
+| `GET /api/voice/transcript/{id}` | Read transcript lines captured from the Agora client |
+| `POST /api/voice/transcript/{id}` | Append validated transcript lines |
+| `POST /api/voice/session/{id}/extract` | Validate an agent extraction against this session's exact final transcript, then persist source-linked memories |
+| `POST /api/voice/message` | Text fallback; answer through evidence-based retrieval |
+| `POST /api/voice/evidence` | Read-only evidence preview used by the browser |
+| `POST /api/voice/tools/recall` | Authenticated Agora custom tool; returns sourced memory, commitment, history, deadlines, dependencies, and recovery options |
+| `GET /api/voice/tools/technicians` | Read the synthetic mock technician roster |
+| `POST /api/voice/tools/action-proposal` | Create an action through the existing action service; does not approve or execute it |
+| `POST /api/voice/action/{id}/approve` | Approve the exact action request from the voice UI |
+| `POST /api/voice/action/{id}/reject` | Cancel/reject an unexecuted action |
+
+### Voice setup and operation
+
+The browser interface is served at `/`. In production it asks for `X-API-Key` in a password field; the key stays in page memory and is never written to browser storage. `POST /api/voice/session/start` creates the agent session server-side, then returns the App ID, channel, UID, and expiring RTC/RTM tokens needed by the browser. The App Certificate and Murf key are not returned. Microphone capture, channel join, audio playback, RTM transcripts, and cleanup use the Agora browser SDK. Speaking while the agent is talking is the interruption mechanism; Agora controls the turn-taking behavior. If microphone permission is denied or connection setup fails, the page displays a recoverable error and the text input remains available.
+
+Agora's Conversational AI Platform currently documents its Python Platform SDK as preview. Install the dependencies in `requirements.txt`. Create a saved Conversational AI agent in the Agora Console/Agent Studio and set `AGORA_APP_ID`, `AGORA_APP_CERTIFICATE`, and its saved ID in `AGORA_AGENT_ID` on the RecallLoop server. The selected implementation uses App ID + App Certificate token authentication; it does not need Agora Customer ID/Secret. Agora's Platform docs currently show US routing, so `AgoraPlatformProvider` uses the US area.
+
+Configure the saved agent with:
+
+1. A cascaded speech pipeline: choose an ASR language and an available LLM/provider in Agora. The LLM must be configured to use the tools below for memory or action questions.
+2. TTS vendor **Murf**, credential mode **BYOK**, with its API key saved in an Agora secret set. Configure the chosen Murf voice ID, locale, and Falcon model (`FALCON` in Agora's Murf adapter; the Murf API model family is Falcon 2.1), with 24 kHz output. Agora's Murf integration sends streamed audio over the RTC session, so RecallLoop does not also play a second Murf stream in the browser.
+3. Enable RTM/Signaling transcript delivery and set the data channel to `rtm`. The saved-agent tool instructions should say: “For claims about prior discussions, call `recall_memory` first. Cite only returned source transcript, timestamp, status, and evidence. If no record matches, ask a question rather than filling gaps. If completion evidence is missing, say you cannot verify completion, cite the earlier commitment if supplied, and do not claim the physical work is done or definitely incomplete. For reassignment, call `available_mock_technicians` and ask the user to name one of those options. Call `propose_action` only with exact ticket/commitment details supported by retrieved records. Never approve or execute an action; wait for the user.”
+4. Add authenticated custom tools using the deployed HTTPS origin and the `X-API-Key` header. Store the API key as an Agora secret/credential and do not paste it into a public tool description.
+
+| Agent tool | Method and URL | Input |
+|---|---|---|
+| `recall_memory` | `POST https://<host>/api/voice/tools/recall` | `{"query":"..."}` |
+| `available_mock_technicians` | `GET https://<host>/api/voice/tools/technicians` | none |
+| `propose_action` | `POST https://<host>/api/voice/tools/action-proposal` | Valid `ActionCreate` JSON, including unique `idempotency_key` |
+| `save_transcript_memory` | `POST https://<host>/api/voice/session/{session_id}/extract` | `{"session_id":"...","content":"...","extraction_response":{"commitments":[...],"unresolved":[]}}` |
+
+The API-key middleware protects these callbacks too. Local text recall works without Agora credentials. A real Agora callback requires a public HTTPS origin; `localhost` is not reachable by Agora's servers. The UI's text fallback uses browser speech synthesis only for text-entered questions. For microphone turns, Agora/Murf supplies audio while the browser shows transcript text, preventing duplicate speech. If Agora or Murf fails, the UI reports the error; text retrieval remains available. The direct Murf WebSocket API is not separately called because Agora's documented native Murf adapter already streams speech over RTC.
+
+Declare a required string session variable named `recallloop_session_id` in the saved agent so the platform passes the local session identifier to its custom tool context. The server injects this value when creating each Agora session. The extraction callback builds the source from the persisted final transcript and validates every commitment quote, attribution, certainty, and date with the existing `ExtractionInterface`; invalid or fabricated quotes return HTTP 422. A saved transcript with no commitment can be stored with `content` and an empty `commitments` array. This is an explicit tool call: ordinary conversation is not silently turned into a stored memory.
+
+The default technician names are synthetic mock options for local demos, not a statement about real people or their live availability. Set `RECALLLOOP_MOCK_TECHNICIANS` to the mock names you want to allow. Ticket changes still run through `MockTicketTool`, require an approved action, and do not establish physical completion. The example cannot reassign a real maintenance ticket.
+
+For local operation, copy `.env.example` to `.env` (never commit `.env`), fill the Agora settings only when you want to test vendor sessions, then run:
+
+```powershell
+Copy-Item .env.example .env
+python -m pip install -r requirements.txt
+python -m uvicorn recallloop.api:app --reload
+```
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000), enter `RECALLLOOP_API_KEY` if configured, and allow microphone access. To exercise only the text and memory path, run without Agora credentials and use the text box. For a vendor integration test, configure a saved agent with the tools above and use a reachable HTTPS deployment.
 
 Example memory request:
 
@@ -163,14 +213,15 @@ The suite preserves the original 25 golden cases and adds coverage for persisten
 
 ## Deployment readiness (Render)
 
-`render.yaml` describes a single-instance Render web service using the existing FastAPI application, a 1 GB persistent disk, and `/health` as its platform health check. The database path points inside that disk. This configuration uses Render's paid `starter` service plan because free Render web services cannot attach persistent disks; the service is intended for a small single-instance deployment, not horizontal scaling. Review the current plan and disk charges in Render before creating the service.
+`render.yaml` describes a single-instance Render Free web service and `/health` as its platform health check. It has no persistent disk or paid service plan. **SQLite files on Render Free are ephemeral and can be lost on restart, deploy, or instance replacement.** Use local SQLite for development only; persistent production memory needs a separately approved persistent database service. The Agora Platform Preview and provider usage may have their own account requirements and costs; this repository does not provision or verify them.
 
 To deploy:
 
 1. Push this project, including `render.yaml`, to a Git provider account connected to your Render account. The project must be at the repository root.
 2. In the Render dashboard choose **New → Blueprint**, select that repository, and review the proposed `recallloop-api-prod` service and billing before applying it.
 3. Wait for the deployment to become live. Render's generated URL is the application URL; append `/docs` for interactive API documentation and `/health` for the public health check.
-4. Copy the generated `RECALLLOOP_API_KEY` from the service's environment settings into a trusted client. Send it as `X-API-Key` on API requests. The health endpoint, `/docs`, `/redoc`, and `/openapi.json` are public; memory, commitment, recall, and action routes require the key in production.
+4. Add `AGORA_APP_ID`, `AGORA_APP_CERTIFICATE`, and `AGORA_AGENT_ID` in the Render service environment if using voice. Add the `AGORA_APP_CERTIFICATE` only as a secret. Configure Agora Agent Studio's authenticated tools to use the service URL and the generated `RECALLLOOP_API_KEY` as `X-API-Key`.
+5. Copy the generated `RECALLLOOP_API_KEY` from the service's environment settings into the trusted browser UI or service client. Send it as `X-API-Key` on API requests. The static voice interface and health/docs pages are public; memory, commitment, recall, voice, and action routes require the key in production.
 
 Example PowerShell request (replace the host with the deployed service URL and set the key in your shell):
 
@@ -181,7 +232,7 @@ Invoke-RestMethod "https://<service>.onrender.com/health"
 Invoke-RestMethod "https://<service>.onrender.com/memories/search?query=repair" -Headers $headers
 ```
 
-The application rejects production startup when `RECALLLOOP_API_KEY` is missing. Do not put the key in a browser frontend or public source file: it grants access to all current API routes, including approval and execution operations. This is a single shared-key protection layer, not per-user authentication or role-based access control. The SQLite disk is attached to one service instance; do not scale this deployment to multiple instances. The tools remain local mocks and do not send real notifications or create tickets in an external system.
+The application rejects production startup when `RECALLLOOP_API_KEY` is missing. This deployment uses one shared API key, not per-user authentication or role-based access control; voice-interface users can approve actions available to the deployment. Use it only for a trusted demo until role-based access exists. Render Free SQLite is ephemeral: all memories, actions, and voice transcripts can be lost on service restart or redeploy. Do not treat this free deployment as durable memory storage. Mock notifications and tickets do not contact external services.
 
 ## Golden suite provenance
 

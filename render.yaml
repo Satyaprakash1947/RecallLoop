@@ -2,18 +2,20 @@ services:
   - type: web
     name: recallloop-api-prod
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: python -m pip install -r requirements.txt
     startCommand: python -m uvicorn recallloop.api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
-    disk:
-      name: recallloop-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: RECALLLOOP_ENV
         value: production
-      - key: RECALLLOOP_DB_PATH
-        value: /var/data/recallloop.sqlite3
       - key: RECALLLOOP_API_KEY
         generateValue: true
+      - key: AGORA_APP_ID
+        sync: false
+      - key: AGORA_APP_CERTIFICATE
+        sync: false
+      - key: AGORA_AGENT_ID
+        sync: false
+      - key: RECALLLOOP_MOCK_TECHNICIANS
+        value: Technician-1,Technician-2

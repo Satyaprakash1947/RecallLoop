@@ -2,6 +2,10 @@ __pycache__/
 .pytest_cache/
 .venv/
 *.py[cod]
+.env
+.env.*
+!.env.example
+node_modules/
 recallloop.sqlite3
 recallloop.sqlite3-shm
 recallloop.sqlite3-wal

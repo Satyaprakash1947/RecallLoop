@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
+import os
 from typing import Protocol
 from uuid import uuid4
 
@@ -71,13 +72,24 @@ class MockTicketTool:
 
     action_types = {ActionType.CREATE_TICKET, ActionType.UPDATE_TICKET, ActionType.REASSIGN_TECHNICIAN}
 
-    def __init__(self, *, fail_next: bool = False, delay_seconds: float = 0):
+    def __init__(self, *, fail_next: bool = False, delay_seconds: float = 0,
+                 available_technicians: list[str] | None = None):
         self.fail_next = fail_next
         self.delay_seconds = max(0, delay_seconds)
         self.tickets: dict[str, dict] = {}
         self._results: dict[str, dict] = {}
         self._next_ticket = 1
+        configured = os.getenv("RECALLLOOP_MOCK_TECHNICIANS")
+        self.available_technicians = tuple(
+            name.strip() for name in (available_technicians if available_technicians is not None
+                                      else configured.split(",") if configured is not None
+                                      else ["Technician-1", "Technician-2"])
+            if name.strip()
+        )
         self._lock = threading.Lock()
+
+    def list_available_technicians(self) -> list[str]:
+        return list(self.available_technicians)
 
     def execute(self, action: ActionRecord) -> dict:
         with self._lock:
@@ -106,7 +118,10 @@ class MockTicketTool:
                 if ticket is None:
                     raise ToolExecutionError(f"mock ticket not found: {ticket_ref}")
                 if action.action_type == ActionType.REASSIGN_TECHNICIAN:
-                    ticket["assignee"] = action.parameters["technician"]
+                    technician = action.parameters["technician"]
+                    if technician not in self.available_technicians:
+                        raise ToolExecutionError("technician is not in the configured mock availability roster")
+                    ticket["assignee"] = technician
                 else:
                     updates = action.parameters["updates"]
                     if not isinstance(updates, dict):
