@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: recallloop-api-prod
+    runtime: python
+    plan: starter
+    buildCommand: python -m pip install -r requirements.txt
+    startCommand: python -m uvicorn recallloop.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: recallloop-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: RECALLLOOP_ENV
+        value: production
+      - key: RECALLLOOP_DB_PATH
+        value: /var/data/recallloop.sqlite3
+      - key: RECALLLOOP_API_KEY
+        generateValue: true

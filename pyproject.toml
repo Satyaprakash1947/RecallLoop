@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recallloop-engine"
+version = "0.3.0"
+description = "Conservative commitment extraction and validation engine"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.7,<3", "fastapi>=0.110,<1", "uvicorn>=0.27,<1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<9", "httpx>=0.27,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["recallloop*"]
